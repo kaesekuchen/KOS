@@ -67,6 +67,27 @@ namespace kOS.Suffixed
             return new Direction(new Vector3d(facing.x, facing.y, facing.z).normalized, false);
         }
 
+        private Quaternion GetRotationFromNorthByParameter()
+        {
+
+            float pitch = 0;
+            float roll = 0;
+            float yaw = 0;
+
+            if (ParameterSingleton.Instance.getParameterStorage().Count >= 3)
+            {
+                pitch = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[0]);
+                yaw = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[1]);
+                roll = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[2]);
+            }
+
+            return SteeringHelper.GetRotationFromNorth(pitch, yaw, roll,Target);
+
+        }
+
+
+
+
         public override bool SetSuffix(string suffixName, object value)
         {
             switch (suffixName)
@@ -112,6 +133,8 @@ namespace kOS.Suffixed
                     return VesselUtils.GetVesselLongitude(Target);
                 case "FACING":
                     return GetFacing();
+                case "DIRECTIONQUATERNION":
+                    return GetRotationFromNorthByParameter();
                 case "UP":
                     return new Direction(Target.upAxis, false);
                 case "NORTH":

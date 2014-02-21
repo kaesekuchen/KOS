@@ -19,6 +19,48 @@ namespace kOS.Utilities
             c.killRot = true;
         }
 
+        public static Quaternion GetRotationFromNorth(float pitch, float yaw, float roll,Vessel vessel)
+        {
+
+            var CoM = vessel.findWorldCenterOfMass();
+            var up = (CoM - vessel.mainBody.position).normalized;
+
+            var north = Vector3d.Exclude(up, (vessel.mainBody.position + vessel.mainBody.transform.up * (float)vessel.mainBody.Radius) - CoM).normalized;
+
+            Quaternion qNorth = Quaternion.LookRotation(up, north);
+
+            Quaternion qHeading = qNorth;
+            //                                 Pitch  Roll  Yaw
+            //                                      z  x  y
+
+            qHeading = qHeading * Quaternion.Euler(0, 0, yaw);
+
+            qHeading = qHeading * Quaternion.Euler(pitch, 0, 0);
+
+            qHeading = qHeading * Quaternion.Euler(0, roll, 0);
+
+            return qHeading;
+        }
+
+        public static void SteerShipTowardSAS(Quaternion qHeading,Vessel vessel)
+        {
+
+            double angleToHeading = Quaternion.Angle(vessel.transform.rotation, qHeading);
+            double angleToLockedHeading = Quaternion.Angle(vessel.transform.rotation, (vessel.vesselSAS.lockedHeading));
+
+            if (angleToHeading > 10)
+            {
+                if (angleToLockedHeading < 0.5)
+                {
+                    vessel.VesselSAS.LockHeading(qHeading);
+                }
+            }
+            else
+            {
+                vessel.VesselSAS.LockHeading(qHeading, true);
+            }
+        }
+
         public static void SteerShipToward(Direction targetDir, FlightCtrlState c, Vessel vessel)
         {
             // I take no credit for this, this is a stripped down, rearranged version of MechJeb's attitude control system

@@ -200,6 +200,10 @@ namespace kOS.Binding
                 {
                     SteeringHelper.SteerShipToward(((Node) Value).GetBurnVector().ToDirection(), c, Vessel);
                 }
+                else if (Value is Quaternion)
+                {
+                    SteeringHelper.SteerShipTowardSAS((Quaternion)Value, Vessel);
+                }
             }
 
             internal void UpdateVessel(Vessel vessel)
