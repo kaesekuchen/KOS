@@ -64,13 +64,25 @@ namespace kOS.Suffixed
             return qPrograde;
         }
 
-        public Quaternion GetTargetDirectionQ(bool inverse)
+        public Quaternion GetTargetOrbitDifferenceQ(bool inverse)
         {
             var vector = (context.Vessel.obt_velocity - Target.obt_velocity);
 
             if (inverse)
                 vector = vector * -1;
             return Quaternion.LookRotation(vector)* Quaternion.Euler(90, 0, 0);
+
+        }
+
+        public Quaternion GetTargetDirectionQ(bool inverse)
+        {
+
+            var vector = (Target.GetWorldPos3D() - context.Vessel.GetWorldPos3D());
+
+            if (inverse)
+                vector = vector * -1;
+
+            return Quaternion.LookRotation(vector) * Quaternion.Euler(90, 0, 0);
 
         }
 
@@ -194,8 +206,12 @@ namespace kOS.Suffixed
                 case "RETROGRADEQ":
                     return GetRetrogradeQ();
                 case "TARGETPROGRADEQ":
-                    return GetTargetDirectionQ(false);
+                    return GetTargetOrbitDifferenceQ(false);
                 case "TARGETRETROGRADEQ":
+                    return GetTargetOrbitDifferenceQ(true);
+                case "TARGETDIRECTIONQ":
+                    return GetTargetDirectionQ(false);
+                case "TARGETDIRECTIONINVERSEQ":
                     return GetTargetDirectionQ(true);
                 case "POSITIONTONORTH":
                     return GetPositionRelativeToNorth();
@@ -236,7 +252,8 @@ namespace kOS.Suffixed
                 case "ORBIT":
                 case "OBT":
                     return new OrbitInfo(Target.orbit, Target);
-
+                case "ANGLETOHEADING":
+                    return Quaternion.Angle(SteeringHelper.lastQHeading, Target.transform.rotation);
             }
 
             // Is this a resource?
