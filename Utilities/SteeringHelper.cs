@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using kOS.Suffixed;
 
+
 namespace kOS.Utilities
 {
     
@@ -42,23 +43,35 @@ namespace kOS.Utilities
             return qHeading;
         }
 
+
+        public static float angleSAS = 1.5f;
+
         public static void SteerShipTowardSAS(Quaternion qHeading,Vessel vessel)
         {
 
+            
             double angleToHeading = Quaternion.Angle(vessel.transform.rotation, qHeading);
             double angleToLockedHeading = Quaternion.Angle(vessel.transform.rotation, (vessel.vesselSAS.lockedHeading));
-
+            
             if (angleToHeading > 10)
             {
-                if (angleToLockedHeading < 0.5)
+                if (angleToLockedHeading < angleSAS)
                 {
                     vessel.VesselSAS.LockHeading(qHeading);
                 }
+      
             }
             else
             {
                 vessel.VesselSAS.LockHeading(qHeading, true);
             }
+
+            
+
+
+
+
+
         }
 
         public static void SteerShipToward(Direction targetDir, FlightCtrlState c, Vessel vessel)
