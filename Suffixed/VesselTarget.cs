@@ -66,16 +66,11 @@ namespace kOS.Suffixed
 
         public Quaternion GetTargetDirectionQ(bool inverse)
         {
-            var CoM = Target.findWorldCenterOfMass();
-            var up = (CoM - Target.mainBody.position).normalized;
+            var vector = (context.Vessel.obt_velocity - Target.obt_velocity);
 
-            var CoM_target = context.Vessel.findWorldCenterOfMass();
-            var up_target = (CoM_target - context.Vessel.mainBody.position).normalized;
-
-            var vector = (up - up_target );
             if (inverse)
                 vector = vector * -1;
-            return Quaternion.LookRotation(vector) * Quaternion.Euler(90, 0, 0);
+            return Quaternion.LookRotation(vector)* Quaternion.Euler(90, 0, 0);
 
         }
 
@@ -238,8 +233,10 @@ namespace kOS.Suffixed
                     return VesselUtils.GetTerminalVelocity(Target);
                 case "LOADED":
                     return Target.loaded;
+                case "ORBIT":
                 case "OBT":
                     return new OrbitInfo(Target.orbit, Target);
+
             }
 
             // Is this a resource?
