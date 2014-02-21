@@ -64,6 +64,40 @@ namespace kOS.Suffixed
             return qPrograde;
         }
 
+        public Quaternion GetTargetDirectionQ(bool inverse)
+        {
+            var CoM = Target.findWorldCenterOfMass();
+            var up = (CoM - Target.mainBody.position).normalized;
+
+            var CoM_target = context.Vessel.findWorldCenterOfMass();
+            var up_target = (CoM_target - context.Vessel.mainBody.position).normalized;
+
+            var vector = (up - up_target );
+            if (inverse)
+                vector = vector * -1;
+            return Quaternion.LookRotation(vector) * Quaternion.Euler(90, 0, 0);
+
+        }
+
+
+        public string GetPositionRelativeToNorth()
+        {
+
+
+            var CoM = Target.findWorldCenterOfMass();
+
+            var up = (CoM - Target.mainBody.position).normalized;
+
+            var north = Vector3d.Exclude(up, (Target.mainBody.position + Target.mainBody.transform.up * (float)Target.mainBody.Radius) - CoM).normalized;
+
+
+            Quaternion rotationSurface = Quaternion.LookRotation(north, up);
+
+            Quaternion gimbal = Quaternion.Inverse(Quaternion.Euler(90, 0, 0) * Quaternion.Inverse(Target.GetTransform().rotation) * rotationSurface);
+
+            return "P" + gimbal.eulerAngles.x.ToString("#.#") + "|" + gimbal.eulerAngles.y.ToString("#.#") + "|" + gimbal.eulerAngles.z.ToString("#.#");
+        }
+
 
         public Direction GetPrograde()
         {
@@ -158,11 +192,18 @@ namespace kOS.Suffixed
                 case "FACING":
                     return GetFacing();
                 case "DIRECTIONQUATERNION":
+                case "NORTHQ":
                     return GetRotationFromNorthByParameter();
                 case "PROGRADEQ":
                     return GetProgradeQ();
                 case "RETROGRADEQ":
                     return GetRetrogradeQ();
+                case "TARGETPROGRADEQ":
+                    return GetTargetDirectionQ(false);
+                case "TARGETRETROGRADEQ":
+                    return GetTargetDirectionQ(true);
+                case "POSITIONTONORTH":
+                    return GetPositionRelativeToNorth();
                 case "UP":
                     return new Direction(Target.upAxis, false);
                 case "NORTH":
