@@ -45,6 +45,26 @@ namespace kOS.Suffixed
             return "VESSEL(\"" + Target.vesselName + "\")";
         }
 
+        public Quaternion GetProgradeQ()
+        {
+            var CoM = Target.findWorldCenterOfMass();
+            var up = (CoM - Target.mainBody.position).normalized;
+
+            Quaternion qPrograde = Quaternion.LookRotation(up, Target.orbit.GetRelativeVel().normalized);
+
+            return qPrograde;
+        }
+        public Quaternion GetRetrogradeQ()
+        {
+            var CoM = Target.findWorldCenterOfMass();
+            var up = (CoM - Target.mainBody.position).normalized;
+
+            Quaternion qPrograde = Quaternion.LookRotation(up, Target.orbit.GetRelativeVel().normalized * -1);
+
+            return qPrograde;
+        }
+
+
         public Direction GetPrograde()
         {
             var up = (Target.findLocalMOI(Target.findWorldCenterOfMass()) - Target.mainBody.position).normalized;
@@ -80,6 +100,10 @@ namespace kOS.Suffixed
                 yaw = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[1]);
                 roll = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[2]);
             }
+            
+            if (ParameterSingleton.Instance.getParameterStorage().Count >= 4)
+                SteeringHelper.angleSAS = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[3]);
+
 
             return SteeringHelper.GetRotationFromNorth(pitch, yaw, roll,Target);
 
@@ -135,6 +159,10 @@ namespace kOS.Suffixed
                     return GetFacing();
                 case "DIRECTIONQUATERNION":
                     return GetRotationFromNorthByParameter();
+                case "PROGRADEQ":
+                    return GetProgradeQ();
+                case "RETROGRADEQ":
+                    return GetRetrogradeQ();
                 case "UP":
                     return new Direction(Target.upAxis, false);
                 case "NORTH":

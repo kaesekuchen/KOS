@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using kOS.Debug;
+using UnityEngine;
 
 namespace kOS.Suffixed
 {
@@ -71,6 +72,12 @@ namespace kOS.Suffixed
             }
         }
 
+        public Quaternion getBurnRotation()
+        {
+            CheckNodeRef();
+            return Quaternion.LookRotation(nodeRef.GetBurnVector(vesselRef.orbit)) * Quaternion.Euler(90, 0, 0);
+        }
+
         public Vector GetBurnVector()
         {
             CheckNodeRef();
@@ -98,6 +105,8 @@ namespace kOS.Suffixed
                 case "DELTAV":
                 case "BURNVECTOR":
                     return GetBurnVector();
+                case "BURNQ":
+                    return getBurnRotation();
                 case "ETA":
                     return Time - Planetarium.GetUniversalTime();
                 case "PROGRADE":
