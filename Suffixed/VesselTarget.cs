@@ -141,9 +141,11 @@ namespace kOS.Suffixed
                 yaw = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[1]);
                 roll = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[2]);
             }
-            
+
             if (ParameterSingleton.Instance.getParameterStorage().Count >= 4)
-                SteeringHelper.angleSAS = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[3]);
+                SteeringHelper.angleSASMinmum = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[3]);
+            if (ParameterSingleton.Instance.getParameterStorage().Count >= 5)
+                SteeringHelper.angleSASMaximum = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[4]);
 
 
             return SteeringHelper.GetRotationFromNorth(pitch, yaw, roll,Target);

@@ -44,34 +44,34 @@ namespace kOS.Utilities
         }
 
 
-        public static float angleSAS = 1.5f;
+        public static float angleSASMaximum = 2f;
 
-        public static void SteerShipTowardSAS(Quaternion qHeading,Vessel vessel)
+        public static float angleSASMinmum = 0.1f;
+
+        public static Quaternion lastQHeading = Quaternion.identity;
+
+
+
+        public static float SteerShipTowardSAS(Quaternion qHeading,Vessel vessel)
         {
-
-            
-            double angleToHeading = Quaternion.Angle(vessel.transform.rotation, qHeading);
-            double angleToLockedHeading = Quaternion.Angle(vessel.transform.rotation, (vessel.vesselSAS.lockedHeading));
-            
-            if (angleToHeading > 10)
+            float angleToHeading = Quaternion.Angle(vessel.transform.rotation, qHeading);
+            float angleToCurrentSASRotation = Quaternion.Angle(vessel.vesselSAS.currentRotation, vessel.transform.rotation); //Quaternion.Angle(vessel.transform.rotation, (vessel.vesselSAS.lockedHeading));
+   
+            if (angleToHeading > 1)
             {
-                if (angleToLockedHeading < angleSAS)
+                if (angleToCurrentSASRotation < Mathf.Clamp(angleToHeading / 60, angleSASMinmum, angleSASMaximum))
                 {
                     vessel.VesselSAS.LockHeading(qHeading);
                 }
-      
             }
             else
             {
                 vessel.VesselSAS.LockHeading(qHeading, true);
             }
 
-            
+            lastQHeading = qHeading;
 
-
-
-
-
+            return angleToHeading;
         }
 
         public static void SteerShipToward(Direction targetDir, FlightCtrlState c, Vessel vessel)
