@@ -45,23 +45,32 @@ namespace kOS.Suffixed
             return "VESSEL(\"" + Target.vesselName + "\")";
         }
 
+
+        public Quaternion GetSurfaceProgradeQ(bool inverse)
+        {
+
+            Vector3 vector = Target.srf_velocity;
+
+            if (inverse)
+                vector = vector * -1;
+
+            Quaternion qPrograde = Quaternion.LookRotation(vector) * Quaternion.Euler(90, 0, 0);
+            return qPrograde;
+        }
+
         public Quaternion GetProgradeQ()
         {
-            var CoM = Target.findWorldCenterOfMass();
-            var up = (CoM - Target.mainBody.position).normalized;
 
-            Quaternion qPrograde = Quaternion.LookRotation(up, Target.orbit.GetRelativeVel().normalized);
+           // orbitVelocity = new Vector(v.obt_velocity);
+            //surfaceVelocity = new Vector(v.srf_velocity);
 
+            Quaternion qPrograde = Quaternion.LookRotation(Target.obt_velocity) * Quaternion.Euler(90, 0, 0);
             return qPrograde;
         }
         public Quaternion GetRetrogradeQ()
         {
-            var CoM = Target.findWorldCenterOfMass();
-            var up = (CoM - Target.mainBody.position).normalized;
-
-            Quaternion qPrograde = Quaternion.LookRotation(up, Target.orbit.GetRelativeVel().normalized * -1);
-
-            return qPrograde;
+            Quaternion qRetrograde = Quaternion.LookRotation(Target.obt_velocity * -1) * Quaternion.Euler(90, 0, 0);
+            return qRetrograde;
         }
 
         public Quaternion GetTargetOrbitDifferenceQ(bool inverse)
@@ -148,7 +157,9 @@ namespace kOS.Suffixed
                 SteeringHelper.angleSASMaximum = System.Convert.ToSingle(ParameterSingleton.Instance.getParameterStorage()[4]);
 
 
-            return SteeringHelper.GetRotationFromNorth(pitch, yaw, roll,Target);
+            Quaternion result = SteeringHelper.GetRotationFromNorth(pitch, yaw, roll, Target);
+
+            return result;
 
         }
 
@@ -203,6 +214,10 @@ namespace kOS.Suffixed
                 case "DIRECTIONQUATERNION":
                 case "NORTHQ":
                     return GetRotationFromNorthByParameter();
+                case "SURFACEPROGRADEQ":
+                    return GetSurfaceProgradeQ(false);
+                case "SURFACERETROGRADEQ":
+                    return GetSurfaceProgradeQ(true);
                 case "PROGRADEQ":
                     return GetProgradeQ();
                 case "RETROGRADEQ":
@@ -267,5 +282,13 @@ namespace kOS.Suffixed
 
             return base.GetSuffix(suffixName);
         }
+
+     
+  
+
+
+
+
+        
     }
 }
