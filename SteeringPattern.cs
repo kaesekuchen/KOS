@@ -11,32 +11,58 @@ namespace kOS
     public enum SteeringPatternEnum
     {
         ROLLPITCHFINAL,
-        ROLLYAWFINAL
+        ROLLYAWFINAL,
+        DIRECT
     }
     public enum WayPointType
     {
         DEFAULT,
         FINAL,
-        INTERMEDIATE
+        INTERMEDIATE,
+        DYNAMIC
     }
 
     public class WayPointQuaternion
     {
 
         private Quaternion rotation;
-        private WayPointType type;
+        private WayPointType waypointType;
+
+        public float pitch = 0f;
+        public float yaw = 0f;
+        public float roll = 0f;
+
+        private Vessel vessel;
+
+        public WayPointQuaternion(float pitch, float yaw, float roll,Vessel vessel)
+        {
+            this.waypointType = WayPointType.DYNAMIC;
+            this.pitch = pitch;
+            this.yaw = yaw;
+            this.roll = roll;
+            this.vessel = vessel;
+        }
 
         public WayPointQuaternion(Quaternion rotation, WayPointType type)
         {
             this.rotation = rotation;
-            this.type = type;
+            this.waypointType = type;
         }
 
         public Quaternion getRotation()
         {
+            //if dynamic, update rotation.
+            if (this.GetWaypointType() == WayPointType.DYNAMIC)
+            {
+                this.rotation = kOS.Utilities.SteeringHelper.GetRotationFromNorth(pitch, yaw, roll, vessel);
+            }
             return this.rotation;
         }
 
+        public WayPointType GetWaypointType()
+        {
+            return this.waypointType;
+        }
     }
 
     public class SteeringPattern
@@ -48,9 +74,11 @@ namespace kOS
         private Quaternion qEnd;
         private SteeringPatternEnum pattern;
 
-        private static float    interPolationSteps     = 0.0001f;
-        private static float    angleThreshold         = 0.01f;
-        private static int      angleRounding          = 3;
+        private static float    interPolationSteps          = 0.0001f;
+        private static float    angleThresholdDetection              = 0.01f;
+        private static float angleThresholdIntermediate = 2.5f;
+        private static float angleThresholdDefault = 1f;
+        private static int angleRounding = 3;
 
         private string debugVerbose = "";
 
@@ -64,20 +92,24 @@ namespace kOS
             this.qStart = start;
             this.qEnd = end;
             this.pattern = pattern;
-
+            wayPoints = new List<WayPointQuaternion>();
             switch (pattern)
             {
                 case SteeringPatternEnum.ROLLYAWFINAL:
                 case SteeringPatternEnum.ROLLPITCHFINAL:
                     pathFindingRollFirst(start, end);
                     break;
+                case SteeringPatternEnum.DIRECT:
+                    wayPoints.Add(new WayPointQuaternion(start,WayPointType.DEFAULT));
+                    wayPoints.Add(new WayPointQuaternion(end, WayPointType.DEFAULT));
+                    break;
             }
 
         }
 
-        public Quaternion findDistance(Quaternion rollRotation, float singleAxisRotation, Vector3 angleCompareTo)
+        public List<Quaternion> findDistance(Quaternion rollRotation, float singleAxisRotation, Vector3 angleCompareTo, int intermediateSteps = 1)
         {
-
+            List<Quaternion> intermediateQuaternions = new List<Quaternion>();
             Quaternion yawPlus;
             Quaternion yawMinus;
             Quaternion pitchPlus;
@@ -112,16 +144,29 @@ namespace kOS
             {
                 if (distanceYawPlus < distanceYawMinus)
                 {
-                    if (Math.Round(distanceYawPlus, angleRounding) <= angleThreshold)
+                    if (Math.Round(distanceYawPlus, angleRounding) <= angleThresholdDetection)
                     {
-                        return yawPlus;
+                        var rotationSteps = singleAxisRotation / intermediateSteps; 
+                        for (var i = 1; i <= intermediateSteps; i++)
+                        {
+                            intermediateQuaternions.Add(rollRotation * Quaternion.Euler(0, 0, (rotationSteps * i)));
+                        }
+
+
+
+                        return intermediateQuaternions;
                     }
                 }
                 else
                 {
-                    if (Math.Round(distanceYawMinus, angleRounding) <= angleThreshold)
+                    if (Math.Round(distanceYawMinus, angleRounding) <= angleThresholdDetection)
                     {
-                        return yawMinus;
+                        var rotationSteps = singleAxisRotation / intermediateSteps;
+                        for (var i = 1; i <= intermediateSteps; i++)
+                        {
+                            intermediateQuaternions.Add(rollRotation * Quaternion.Euler(0, 0, (-1 * (rotationSteps * i))));
+                        }
+                        return intermediateQuaternions;
                     }
                 }
             }
@@ -129,21 +174,31 @@ namespace kOS
             {
                 if (distancePitchPlus < distancePitchMinus)
                 {
-                    if (Math.Round(distancePitchPlus, angleRounding) <= angleThreshold)
+                    if (Math.Round(distancePitchPlus, angleRounding) <= angleThresholdDetection)
                     {
-                        return pitchPlus;
+                        var rotationSteps = singleAxisRotation / intermediateSteps;
+                        for (var i = 1; i <= intermediateSteps; i++)
+                        {
+                            intermediateQuaternions.Add(rollRotation * Quaternion.Euler((rotationSteps * i), 0, 0));
+                        }
+                        return intermediateQuaternions;
                     }
                 }
                 else
                 {
-                    if (Math.Round(distancePitchMinus, angleRounding) <= angleThreshold)
+                    if (Math.Round(distancePitchMinus, angleRounding) <= angleThresholdDetection)
                     {
-                        return pitchMinus;
+                        var rotationSteps = singleAxisRotation / intermediateSteps;
+                        for (var i = 1; i <= intermediateSteps; i++)
+                        {
+                            intermediateQuaternions.Add(rollRotation * Quaternion.Euler((-1 * (rotationSteps * i)), 0, 0));
+                        }
+                        return intermediateQuaternions;
                     }
                 }
             }
 
-            return Quaternion.identity;
+            return intermediateQuaternions;
 
 
         }
@@ -163,7 +218,7 @@ namespace kOS
 
             Quaternion rollRotation;
 
-            wayPoints = new List<WayPointQuaternion>();
+            
 
        
 
@@ -175,12 +230,15 @@ namespace kOS
                 //Quadrant One + Three
                 rollRotation = Quaternion.Lerp(q1, q1 * Quaternion.Euler(0, -90, 0), f);
 
-                Quaternion tempResult = findDistance(rollRotation, singleAxisRotation, q2 * Vector3.up);
+                List<Quaternion> tempResult = findDistance(rollRotation, singleAxisRotation, q2 * Vector3.up,5);
 
-                if (tempResult != Quaternion.identity)
+                if (tempResult.Count > 0)
                 {
                     wayPoints.Add(new WayPointQuaternion(rollRotation,WayPointType.DEFAULT));
-                    wayPoints.Add(new WayPointQuaternion(tempResult,WayPointType.DEFAULT));
+                    foreach (Quaternion q in tempResult)
+                    {
+                        wayPoints.Add(new WayPointQuaternion(q, WayPointType.INTERMEDIATE));
+                    }
                     wayPoints.Add(new WayPointQuaternion(this.qEnd, WayPointType.DEFAULT));
                     break;
                 }
@@ -189,11 +247,14 @@ namespace kOS
                 //Quadrant Two + Four
                 rollRotation = Quaternion.Lerp(q1, q1 * Quaternion.Euler(0, 90, 0), f);
 
-                tempResult = findDistance(rollRotation, singleAxisRotation, q2 * Vector3.up);
-                if (tempResult != Quaternion.identity)
+                tempResult = findDistance(rollRotation, singleAxisRotation, q2 * Vector3.up,5);
+                if (tempResult.Count >0)
                 {
                     wayPoints.Add(new WayPointQuaternion(rollRotation, WayPointType.DEFAULT));
-                    wayPoints.Add(new WayPointQuaternion(tempResult, WayPointType.DEFAULT));
+                    foreach (Quaternion q in tempResult)
+                    {
+                        wayPoints.Add(new WayPointQuaternion(q, WayPointType.INTERMEDIATE));
+                    }
                     wayPoints.Add(new WayPointQuaternion(this.qEnd, WayPointType.DEFAULT));
                     break;
                 }
@@ -209,7 +270,7 @@ namespace kOS
         }
 
 
-        public Quaternion returnNextWayPoint(Vessel vessel)
+        public Quaternion returnNextWayPoint(Vessel vessel,bool moveToEndIfNotLast = false)
         {
 
             //update steeringpattern accordingly.
@@ -217,17 +278,82 @@ namespace kOS
             //if we are not at the final waypoint yet.
             if (wayPoints.Count > 1)
             {
+               
+
+
                 var angle = Quaternion.Angle(wayPoints[0].getRotation(), vessel.transform.rotation);
 
-                if (Math.Round(angle,angleRounding) < angleThreshold)
-                    wayPoints.RemoveAt(0);
+    
+
+                    
+             
+
+               
+
+                if (Math.Round(angle, angleRounding) < (wayPoints[0].GetWaypointType() == WayPointType.INTERMEDIATE ? angleThresholdIntermediate : angleThresholdDefault))
+                {
+                    //reached
+                    if (moveToEndIfNotLast)
+                    {
+                        WayPointQuaternion temp = wayPoints[0];
+                        wayPoints.RemoveAt(0);
+                        if (wayPoints.Count > 0)
+                            wayPoints.Add(temp);
+
+                    }
+                    else
+                    {
+                        wayPoints.RemoveAt(0);
+                        KSP.IO.File.AppendAllText<SteeringPattern>("removing,count now at " + ParameterSingleton.Instance.currentSteeringPattern.GetWayPoints().Count + " \n", "VesselTargetDebug.txt");
+                    }
+                }
+                   
             }
             if (wayPoints.Count > 0)
+            {
                 return wayPoints[0].getRotation();
+            }
+                
 
             KSP.IO.File.AppendAllText<SteeringPattern>("returning identity " + ParameterSingleton.Instance.currentSteeringPattern.GetWayPoints().Count + " \n", "VesselTargetDebug.txt");
             return Quaternion.identity;
 
+        }
+
+        public void appendQuaternion(Quaternion q,WayPointType type, SteeringPatternEnum pattern = SteeringPatternEnum.DIRECT)
+        {
+
+            switch (pattern)
+            {
+                case SteeringPatternEnum.ROLLYAWFINAL:
+                case SteeringPatternEnum.ROLLPITCHFINAL:
+                    pathFindingRollFirst(wayPoints[wayPoints.Count-1].getRotation(), q);
+                    break;
+                case SteeringPatternEnum.DIRECT:
+                    this.wayPoints.Add(new WayPointQuaternion(q, type));
+                    break;
+            }
+
+            
+        }
+
+        public void appendQuaternion(float pitch, float yaw, float roll,Vessel vessel, SteeringPatternEnum pattern = SteeringPatternEnum.DIRECT)
+        {
+
+            switch (pattern)
+            {
+                case SteeringPatternEnum.ROLLYAWFINAL:
+                case SteeringPatternEnum.ROLLPITCHFINAL:
+                    WayPointQuaternion temp = new WayPointQuaternion(pitch, yaw, roll, vessel);
+                    pathFindingRollFirst(wayPoints[wayPoints.Count - 1].getRotation(), temp.getRotation());
+                    //this.wayPoints.Add(temp);
+                    break;
+                case SteeringPatternEnum.DIRECT:
+                    this.wayPoints.Add(new WayPointQuaternion(pitch, yaw, roll, vessel));
+                    break;
+            }
+
+            
         }
 
     }
