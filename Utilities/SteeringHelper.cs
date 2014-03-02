@@ -6,7 +6,16 @@ using kOS.Suffixed;
 
 namespace kOS.Utilities
 {
-    
+    public enum RotationApplyOrder
+    {
+        YAWPITCHROLL,
+        YAWROLLPITCH,
+        PITCHYAWROLL,
+        PITCHROLLYAW,
+        ROLLYAWPITCH,
+        ROLLPITCHYAW
+
+    }
     public static class SteeringHelper
     {
         public static void KillRotation(FlightCtrlState c, Vessel vessel)
@@ -18,6 +27,58 @@ namespace kOS.Utilities
             c.yaw = act.z;
 
             c.killRot = true;
+        }
+
+        public static Quaternion GetRotationFromTransform(float pitch, float yaw, float roll, Quaternion rotationInWorldSpace,RotationApplyOrder applyOrder = RotationApplyOrder.YAWPITCHROLL)
+        {
+
+            //var CoM = vessel.findWorldCenterOfMass();
+            //var up = (CoM - vessel.mainBody.position).normalized;
+
+            //var north = Vector3d.Exclude(up, (vessel.mainBody.position + vessel.mainBody.transform.up * (float)vessel.mainBody.Radius) - CoM).normalized;
+
+            //Quaternion qNorth = Quaternion.LookRotation(up, north);
+
+            Quaternion qHeading = rotationInWorldSpace;
+            //                                 Pitch  Roll  Yaw
+            //                                      z  x  y
+            switch (applyOrder)
+            {
+                case RotationApplyOrder.YAWPITCHROLL:
+                    qHeading = qHeading * Quaternion.Euler(0, 0, yaw);
+                    qHeading = qHeading * Quaternion.Euler(pitch, 0, 0);
+                    qHeading = qHeading * Quaternion.Euler(0, roll, 0);
+                    break;
+                case RotationApplyOrder.YAWROLLPITCH:
+                    qHeading = qHeading * Quaternion.Euler(0, 0, yaw);
+                    qHeading = qHeading * Quaternion.Euler(0, roll, 0);
+                    qHeading = qHeading * Quaternion.Euler(pitch, 0, 0);
+                    break;
+                case RotationApplyOrder.ROLLYAWPITCH:
+                    qHeading = qHeading * Quaternion.Euler(0, roll, 0);
+                    qHeading = qHeading * Quaternion.Euler(0, 0, yaw);
+                    qHeading = qHeading * Quaternion.Euler(pitch, 0, 0);
+                    break;
+                case RotationApplyOrder.ROLLPITCHYAW:
+                    qHeading = qHeading * Quaternion.Euler(0, roll, 0);
+                    qHeading = qHeading * Quaternion.Euler(pitch, 0, 0);
+                    qHeading = qHeading * Quaternion.Euler(0, 0, yaw);
+                    break;
+                case RotationApplyOrder.PITCHROLLYAW:
+                    qHeading = qHeading * Quaternion.Euler(pitch, 0, 0);
+                    qHeading = qHeading * Quaternion.Euler(0, roll, 0);
+                    qHeading = qHeading * Quaternion.Euler(0, 0, yaw);
+                    break;
+                case RotationApplyOrder.PITCHYAWROLL:
+                    qHeading = qHeading * Quaternion.Euler(pitch, 0, 0);
+                    qHeading = qHeading * Quaternion.Euler(0, 0, yaw);
+                    qHeading = qHeading * Quaternion.Euler(0, roll, 0);
+                    break;
+
+            }
+
+
+            return qHeading;
         }
 
         public static Quaternion GetRotationFromNorth(float pitch, float yaw, float roll,Vessel vessel)
@@ -40,13 +101,14 @@ namespace kOS.Utilities
 
             qHeading = qHeading * Quaternion.Euler(0, roll, 0);
 
+
             return qHeading;
         }
 
 
-        public static float angleSASMaximum = 2f;
+        public static float angleSASMaximum = 0.5f;
 
-        public static float angleSASMinmum = 0.1f;
+        public static float angleSASMinmum = 0.05f;
 
         public static Quaternion lastQHeading = Quaternion.identity;
 
@@ -72,6 +134,19 @@ namespace kOS.Utilities
             lastQHeading = qHeading;
 
             return angleToHeading;
+        }
+
+
+        public static void SteerShipViaSteeringPattern(SteeringPattern sp, Vessel vessel)
+        {
+            Quaternion nextWaypointQuaternion = sp.returnNextWayPoint(vessel, false);
+            if (nextWaypointQuaternion == Quaternion.identity)
+            {
+                
+                return;
+            }
+            SteerShipTowardSAS(nextWaypointQuaternion, vessel);
+           // 
         }
 
         public static void SteerShipToward(Direction targetDir, FlightCtrlState c, Vessel vessel)
@@ -221,6 +296,63 @@ namespace kOS.Utilities
         {
             return new Vector3d(Math.Sign(vector.x), Math.Sign(vector.y), Math.Sign(vector.z));
         }
+
+
+
+        public static Quaternion distanceBetweenTwoQuaternionsIgnoreRoll(Quaternion q1, Quaternion q2)
+        {
+
+            //q1 = origin
+            //q2 = destination
+
+            //distance metric : 
+            var distance = Vector3.Angle(q1 * Vector3.up, q2 * Vector3.up);
+            var singleAxisRotation = distance ;
+
+            string result = "distance = " + distance + "\n";
+            result += "singleAxisRotation = " + singleAxisRotation + "\n";
+
+
+          
+
+            for (float f1 = 0; f1 < 1.0f; f1 += 0.0001f)
+            {
+
+                Quaternion iQ1 = Quaternion.Lerp(q1, q1 * Quaternion.Euler(0, 180, 0), f1);
+
+                Quaternion testQ = Quaternion.identity;
+
+                distance = Vector3.Angle(iQ1 * Vector3.up, q2 * Vector3.up);
+
+
+                var distanceYaw = Math.Min(Vector3.Angle((iQ1 * Quaternion.Euler(0, 0, singleAxisRotation)) * Vector3.up, q2 * Vector3.up), Vector3.Angle((iQ1 * Quaternion.Euler(0, 0, (singleAxisRotation*-1))) * Vector3.up, q2 * Vector3.up));
+
+                var distancePitch = Math.Min(Vector3.Angle((iQ1 * Quaternion.Euler(singleAxisRotation, 0, 0)) * Vector3.up, q2 * Vector3.up), Vector3.Angle((iQ1 * Quaternion.Euler((singleAxisRotation * -1), 0, 0)) * Vector3.up, q2 * Vector3.up));
+
+                if (
+                    (Math.Round(distanceYaw, 3) <= 0.01 && Math.Round(distanceYaw, 3) >= -0.01)
+                    || (Math.Round(distancePitch, 3) <= 0.01 && Math.Round(distancePitch, 3) >= -0.01)
+                    )
+                    result += "f1=" + f1 + "|distance=" + distance + "|yaw=" + distanceYaw + "|pitch=" + distancePitch + "\n";
+
+
+                if ((Math.Round(distanceYaw, 3) <= 0.01 && Math.Round(distanceYaw, 3) >= -0.01))
+                    return iQ1;//f1*180;
+                if ((Math.Round(distancePitch, 3) <= 0.01 && Math.Round(distancePitch, 3) >= -0.01))
+                    return iQ1;//f1 * 180;
+
+             
+                   
+                       
+
+            }
+            KSP.IO.File.AppendAllText<VesselTarget>(result, "VesselTargetDebug.txt");
+            return Quaternion.identity;// 0;
+            
+           
+
+        }
+
     }
 }
 
